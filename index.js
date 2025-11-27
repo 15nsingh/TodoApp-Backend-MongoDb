@@ -6,16 +6,21 @@ const jwt = require("jsonwebtoken")
 const { default: mongoose } = require('mongoose')
 const JWT_SECRET = "yoyoyohoneysingh"
 
-mongoose.connect("<mongodb_url>")
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
+
+mongoose.connect("<mongodb url>")
 
 app.post('/signup', async (req, res) => {
   const username = req.body.username;
   const password = req.body.password;
   const name = req.body.name;
 
+  const hashedPassword = await bcrypt.hash(password,saltRounds)
+
   await User.insertOne({
     username: username,
-    password: password,
+    password: hashedPassword, // this automatically stores the salt too!!
     name: name
   })
 
@@ -27,16 +32,21 @@ app.post('/signin', async (req, res) => {
   const username = req.body.username;
   const password = req.body.password;
 
-  const user_login_check = await User.findOne({
-    username: username,
-    password: password
+  const response = await User.findOne({
+    username: username
   })
 
-  console.log(user_login_check)
+  if(!response){
+    res.status(403).json({
+      message: "User doesnot exist"
+    })
+  }
 
-  if(user_login_check){
+  const passwordMatch = await bcrypt.compare(password,response.password)
+
+  if(passwordMatch){
     const token = jwt.sign({
-      id: user_login_check._id
+      id: response._id
     }, JWT_SECRET)
     res.json({
       token: token
@@ -46,6 +56,25 @@ app.post('/signin', async (req, res) => {
       message: "Incorrect email or password"
     })
   }
+  // const user_login_check = await User.findOne({
+  //   username: username,
+  //   password: password
+  // })
+
+  // console.log(user_login_check)
+
+//   if(user_login_check){
+//     const token = jwt.sign({
+//       id: user_login_check._id
+//     }, JWT_SECRET)
+//     res.json({
+//       token: token
+//     })
+//   }else{
+//     res.status(403).json({
+//       message: "Incorrect email or password"
+//     })
+//   }
 })
 
 const auth = (req,res,next) => {
